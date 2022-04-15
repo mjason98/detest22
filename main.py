@@ -1,14 +1,14 @@
 import sys, argparse, os
 from code.params import PARAMETERS
+from code.models import setTransName, setSeed
 
 TRAIN_DATA_PATH = os.path.join("data", "train.csv")
 EVAL_DATA_PATH = ""
-LANGUAGE = "es"
 
 def check_params(arg=None):
     global TRAIN_DATA_PATH
     global EVAL_DATA_PATH
-    global LANGUAGE
+    global PARAMETERS
 
     parse = argparse.ArgumentParser(description='Deep Model to solve IverLeaf2021 HAHA Task')
 
@@ -18,7 +18,7 @@ def check_params(arg=None):
                        required=False, default=EVAL_DATA_PATH)
     
     parse.add_argument('--lang', dest='language', help='The language of the system', 
-                       required=False, default=LANGUAGE, choices=PARAMETERS["languages"])
+                       required=False, default=PARAMETERS["default_language"], choices=PARAMETERS["languages"])
 
     parse.add_argument('--seed', dest='my_seed', help='Random Seed', 
                        required=False, default=1234567)
@@ -26,8 +26,14 @@ def check_params(arg=None):
     returns = parse.parse_args(arg)
     TRAIN_DATA_PATH = returns.train_data
     EVAL_DATA_PATH  = returns.eval_data
-    LANGUAGE = returns.language
+    PARAMETERS["default_language"] = returns.language
 
+    setSeed(int(returns.my_seed))
+
+    if not os.path.isdir("data"):
+        os.mkdir("data")
+    if not os.path.isdir("pts"):
+        os.mkdir("pts")
 
 
 if __name__ == "__main__":

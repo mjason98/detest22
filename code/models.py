@@ -1,0 +1,186 @@
+import numpy as np 
+import math, os, random, torch, copy
+from params import PARAMETERS
+from utils import MyBar
+
+from transformers import AutoTokenizer, AutoModel
+
+LANGUAGE = PARAMETERS["default_language"]
+
+def setTransName(name:str):
+    global TRANS_NAME
+    TRANS_NAME = name
+
+def setSeed(my_seed:int):
+    torch.manual_seed(my_seed)
+    np.random.seed(my_seed)
+    random.seed(my_seed)
+
+# function that creates the transformer and tokenizer for later uses
+def make_trans_pretrained_model(model_only=False):
+    '''
+        This function return (tokenizer, model)
+    '''
+    tokenizer, model = None, None
+    
+    tokenizer = AutoTokenizer.from_pretrained(TRANS_NAME)
+    model = AutoModel.from_pretrained(TRANS_NAME)
+
+    if model_only:
+        return model 
+    else:
+        return tokenizer, model
+
+# The encoder last layers
+class Encod_Last_Layers(torch.nn.Module):
+    def __init__(self, vec_size):
+        super(Encod_Last_Layers, self).__init__()
+        
+        self.__MHAtttentionLayer  = torch.nn.TransformerEncoderLayer(vec_size, nhead=5, batch_first=True)
+        self.MHA = torch.nn.TransformerEncoder(self.__MHAtttentionLayer, num_layers=2)
+        self.vec_size = vec_size
+        # Classification
+        self.Task1    = torch.nn.Linear(vec_size, 2)
+
+    def forward(self, X, V1, V2):
+        x_ = torch.concat([ X.view(-1, 1, self.vec_size) , V1.view(-1, 1, self.vec_size), V2.view(-1, 1, self.vec_size)], axis=1)
+        x_ = self.MHA(x_)
+        x_ = self.Task1(X)
+        return x_
+
+    def load(self, path):
+        self.load_state_dict(torch.load(path))
+
+    def save(self, path):
+        torch.save(self.state_dict(), path)
+
+# The encoder used in this work
+class Encoder_Model(torch.nn.Module):
+    def __init__(self):
+        super(Encoder_Model, self).__init__()
+        self.criterion1 = torch.nn.CrossEntropyLoss( torch.Tensor(PARAMETERS["training_params_by_language"][LANGUAGE]["training_weights"]) )
+
+        self.max_length = PARAMETERS["training_params_by_language"][LANGUAGE]["max_lenght"]
+        self.tok, self.bert = make_trans_pretrained_model()
+
+        self.encoder_last_layer = Encod_Last_Layers(PARAMETERS["training_params_by_language"][LANGUAGE]["transformer_embedding_size"])
+
+        self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        self.to(device=self.device)
+        
+    def forward(self, X, V1, V2, return_vec=False):
+        ids   = self.tok(X, return_tensors='pt', truncation=True, padding=True, max_length=self.max_length).to(device=self.device)
+        out   = self.bert(**ids)
+        vects = out[0][:,-1]
+
+        if return_vec:
+            return vects
+        
+        return self.encoder_last_layer(vects, V1, V2)
+
+    def load(self, path):
+        self.load_state_dict(torch.load(path, map_location=self.device))
+
+    def save(self, path):
+        torch.save(self.state_dict(), path) 
+    
+    def makeOptimizer(self):
+        pars = [{'params':self.encoder_last_layer.parameters()}]
+
+        lr = PARAMETERS["training_params_by_language"][LANGUAGE]["lr"]
+        lr_factor = PARAMETERS["training_params_by_language"][LANGUAGE]["lr_factor"]
+
+        for l in self.bert.encoder.layer:
+            lr *= lr_factor
+            D = {'params':l.parameters(), 'lr':lr}
+            pars.append(D)
+        try:
+            lr *= lr_factor
+            D = {'params':self.bert.pooler.parameters(), 'lr':lr}
+            pars.append(D)
+        except:
+            print('#Warning: Pooler layer not found')
+
+        if PARAMETERS["training_params_by_language"][LANGUAGE]["encoder_optimizer"] == 'adam':
+            
+            return torch.optim.Adam(pars, lr=lr, weight_decay=PARAMETERS["training_params_by_language"][LANGUAGE]["encoder_decay"])
+        
+        elif PARAMETERS["training_params_by_language"][LANGUAGE]["encoder_optimizer"] == 'rms':
+            
+            return torch.optim.RMSprop(pars, lr=lr, weight_decay=PARAMETERS["training_params_by_language"][LANGUAGE]["encoder_decay"])
+
+def trainModels(model, Data_loader, evalData_loader=None, nameu='encoder', optim=None):
+    if optim is None:
+        optim = torch.optim.Adam(model.parameters(), lr=PARAMETERS["training_params_by_language"][LANGUAGE]["lr"])
+    model.train()
+
+    epochs = PARAMETERS["training_params_by_language"][LANGUAGE]["epochs"]
+    
+    changeFreq = PARAMETERS["training_params_by_language"][LANGUAGE]["target_frequency"]
+    targetNet = copy.deepcopy(model).to(device=model.device)
+    
+    best_acc, borad_train, board_eval = 0, [], []
+    for e in range(epochs):
+
+        if e == 0 or e%changeFreq == 0:
+            targetNet.load_state_dict(model.state_dict())
+
+        bar = MyBar('Epoch '+str(e+1)+' '*(int(math.log10(epochs)+1) - int(math.log10(e+1)+1)) , 
+                    max=len(Data_loader)+(len(evalData_loader if evalData_loader is not None else 0)))
+       
+        total_loss, total_acc, dl = 0., 0., 0
+        for data in Data_loader:
+            optim.zero_grad()
+            
+            with torch.no_grad():
+                v1 = targetNet(data['v1'], None, None, return_vecs=True).detach()
+                v2 = targetNet(data['v2'], None, None, return_vecs=True).detach()
+
+            y_hat = model(data['x'], v1, v2)
+            y1    = data['y'].to(device=model.device).flatten()
+            
+            try:
+                loss = model.criterion1(y_hat, y1)
+            except:
+                # size 1
+                y_hat = y_hat.view(1,-1)
+                loss  = model.criterion1(y_hat, y1)
+            
+            loss.backward()
+            optim.step()
+
+            with torch.no_grad():
+                total_loss += loss.item() * y1.shape[0]
+                total_acc  += (y1 == y_hat.argmax(dim=-1).flatten()).sum().item()
+                dl += y1.shape[0]
+            bar.next(total_loss/dl)
+        
+        borad_train.append(total_acc/dl)
+        
+        # Evaluate the model
+        if evalData_loader is not None:
+            total_loss, total_acc, dl= 0,0,0
+            
+            with torch.no_grad():
+                for data in evalData_loader:
+
+                    y_hat = model(data['x'])
+                    y1    = data['y'].to(device=model.device).flatten()
+                    loss = model.criterion1(y_hat, y1)
+                    
+                    total_loss += loss.item() * y1.shape[0]
+                    total_acc += (y1 == y_hat.argmax(dim=-1)).sum().item()
+                    dl += y1.shape[0]
+                    bar.next()
+            
+            if best_acc < total_acc:
+                best_acc = total_acc
+                model.save(os.path.join('pts', nameu+'.pt'))
+            
+            board_eval.append(total_acc/dl)
+
+        bar.finish()
+        del bar
+    
+    return borad_train, board_eval
+        
