@@ -7,8 +7,19 @@ PARAMETERS = {
 
     # Transformers models matching the language
     "transformers_by_language":{
-        "es":"",
+        "es":"/DATA/work_space/dccuchile/bert-base-spanish-wwm-cased",
         "en":""
+    },
+
+    # Number of workers for paralelitaion in dataset composition
+    "workers":4,
+
+    # Dataset information
+    "dataset_info":{
+        "comentId_header":'comment_id',
+        "sentence_header":'sentence',
+        "class_header":'stereotype',
+        "replay_header":"reply_to"
     },
 
     # Training parameters --------------------------------------------------------
@@ -16,6 +27,9 @@ PARAMETERS = {
         "es":{
             # * Learning rate hyperparameter used by default in training process
             "lr": 5e-5,
+
+            # * Bacth
+            "batch":4,
 
             # * This value is multiplied to the learning rate powered to the layer id in the layers of the tranformer model
             # * > lr_{layer_i} = lr * (lr_factor ^ i)

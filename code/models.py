@@ -1,15 +1,14 @@
 import numpy as np 
+import pandas as pd
 import math, os, random, torch, copy
-from params import PARAMETERS
-from utils import MyBar
+from .params import PARAMETERS
+from .utils import MyBar
 
+from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
 
 LANGUAGE = PARAMETERS["default_language"]
-
-def setTransName(name:str):
-    global TRANS_NAME
-    TRANS_NAME = name
+TRANS_NAME = PARAMETERS["transformers_by_language"][LANGUAGE]
 
 def setSeed(my_seed:int):
     torch.manual_seed(my_seed)
@@ -36,7 +35,7 @@ class Encod_Last_Layers(torch.nn.Module):
     def __init__(self, vec_size):
         super(Encod_Last_Layers, self).__init__()
         
-        self.__MHAtttentionLayer  = torch.nn.TransformerEncoderLayer(vec_size, nhead=5, batch_first=True)
+        self.__MHAtttentionLayer  = torch.nn.TransformerEncoderLayer(vec_size, nhead=3, batch_first=True)
         self.MHA = torch.nn.TransformerEncoder(self.__MHAtttentionLayer, num_layers=2)
         self.vec_size = vec_size
         # Classification
@@ -126,15 +125,18 @@ def trainModels(model, Data_loader, evalData_loader=None, nameu='encoder', optim
             targetNet.load_state_dict(model.state_dict())
 
         bar = MyBar('Epoch '+str(e+1)+' '*(int(math.log10(epochs)+1) - int(math.log10(e+1)+1)) , 
-                    max=len(Data_loader)+(len(evalData_loader if evalData_loader is not None else 0)))
+                    max=len(Data_loader)+(len(evalData_loader) if evalData_loader is not None else 0))
        
         total_loss, total_acc, dl = 0., 0., 0
         for data in Data_loader:
             optim.zero_grad()
-            
+
+            # v1 = list(map(lambda p: list(p) , data['v1']))
+            # v2 = list(map(lambda p: list(p) , data['v2']))
+
             with torch.no_grad():
-                v1 = targetNet(data['v1'], None, None, return_vecs=True).detach()
-                v2 = targetNet(data['v2'], None, None, return_vecs=True).detach()
+                v1 = targetNet(data['v1'], None, None, return_vec=True).detach()
+                v2 = targetNet(data['v2'], None, None, return_vec=True).detach()
 
             y_hat = model(data['x'], v1, v2)
             y1    = data['y'].to(device=model.device).flatten()
@@ -184,3 +186,52 @@ def trainModels(model, Data_loader, evalData_loader=None, nameu='encoder', optim
     
     return borad_train, board_eval
         
+class RawDataset(Dataset):
+    def __init__(self, csv_file, comentId='comment_id', sentence='sentence', classHeader='stereotype', replay="reply_to"):
+        self.data_frame = pd.read_csv(csv_file)
+        self.sentenceH  = sentence
+        self.comentIdH = comentId
+        self.classH = classHeader
+        self.replyToH = replay
+        self.window  = 3
+        self.max_length = len(self.data_frame)
+
+    def __len__(self):
+        return self.max_length
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        commentid = self.data_frame.loc[idx, self.comentIdH]
+        replayto  = self.data_frame.loc[idx, self.replyToH]
+        sentence  = self.data_frame.loc[idx, self.sentenceH]
+
+        rangeSame  = self.data_frame[max(idx - self.window, 0) : idx                                   ].query(f"{self.comentIdH} == {commentid}")[self.sentenceH].tolist()
+        rangeSame += self.data_frame[idx+1                     : min(idx+self.window, self.max_length) ].query(f"{self.comentIdH} == {commentid}")[self.sentenceH].tolist()
+        rangeSame  = [""]*(self.window*2-1 - len(rangeSame)) + rangeSame
+
+        rangeReplay = self.data_frame.query(f"{self.comentIdH} == {replayto}")[self.sentenceH].tolist()
+
+        if len(rangeReplay) > self.window*2-1:
+            rangeReplay = rangeReplay[-self.window*2+1:]
+        elif len(rangeReplay) < self.window*2-1:
+            rangeReplay = [""]*(self.window*2-1 - len(rangeReplay)) + rangeReplay
+        
+        classValue =  int(self.data_frame.loc[idx, self.classH])
+
+        sample = {'x': sentence, 'v1': rangeSame, 'v2':rangeReplay, 'y':classValue}
+        return sample
+
+def makeDataSet(csv_path:str, shuffle=True):
+    batch   = PARAMETERS["training_params_by_language"][LANGUAGE]["batch"]
+    id_h    = PARAMETERS["dataset_info"]["comentId_header"]
+    text_h  = PARAMETERS["dataset_info"]["sentence_header"]
+    class_h = PARAMETERS["dataset_info"]["class_header"]
+    repl_h  = PARAMETERS["dataset_info"]["replay_header"]
+    WORKS   = PARAMETERS["workers"]
+
+    data   =  RawDataset(csv_path, comentId=id_h, sentence=text_h, classHeader=class_h, replay=repl_h)
+    loader =  DataLoader(data, batch_size=batch, shuffle=shuffle, num_workers=WORKS, drop_last=False)
+    
+    return loader

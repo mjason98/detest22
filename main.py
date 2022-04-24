@@ -1,9 +1,11 @@
+from statistics import mode
 import sys, argparse, os
 from code.params import PARAMETERS
-from code.models import setTransName, setSeed
+from code.models import setSeed, trainModels, Encoder_Model, makeDataSet
 
 TRAIN_DATA_PATH = os.path.join("data", "train.csv")
 EVAL_DATA_PATH = ""
+TEST_DATA_PATH = os.path.join("data", "test.csv")
 
 def check_params(arg=None):
     global TRAIN_DATA_PATH
@@ -35,7 +37,15 @@ def check_params(arg=None):
     if not os.path.isdir("pts"):
         os.mkdir("pts")
 
+def trainStereotypeClassifier():
+    model = Encoder_Model()
+    data  = makeDataSet(TRAIN_DATA_PATH)
+    evalD = None
+
+    trainModels(model, data, evalD, 'model', model.makeOptimizer())
 
 if __name__ == "__main__":
     if check_params(arg=sys.argv[1:]) == 0:
         exit(0)
+    
+    trainStereotypeClassifier()
