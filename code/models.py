@@ -42,7 +42,8 @@ class Encod_Last_Layers(torch.nn.Module):
         self.Task1    = torch.nn.Linear(vec_size, 2)
 
     def forward(self, X, V1, V2):
-        x_ = torch.concat([ X.view(-1, 1, self.vec_size) , V1.view(-1, 1, self.vec_size), V2.view(-1, 1, self.vec_size)], axis=1)
+        batchS = X.shape[0]
+        x_ = torch.concat([ X.view(batchS, 1, self.vec_size) , V1.view(batchS, -1, self.vec_size), V2.view(batchS, -1, self.vec_size)], axis=1)
         x_ = self.MHA(x_)
         x_ = self.Task1(X)
         return x_
@@ -117,12 +118,14 @@ def trainModels(model, Data_loader, evalData_loader=None, nameu='encoder', optim
     
     changeFreq = PARAMETERS["training_params_by_language"][LANGUAGE]["target_frequency"]
     targetNet = copy.deepcopy(model).to(device=model.device)
+    targetNet.eval()
     
     best_acc, borad_train, board_eval = 0, [], []
     for e in range(epochs):
 
         if e == 0 or e%changeFreq == 0:
             targetNet.load_state_dict(model.state_dict())
+            targetNet.eval()
 
         bar = MyBar('Epoch '+str(e+1)+' '*(int(math.log10(epochs)+1) - int(math.log10(e+1)+1)) , 
                     max=len(Data_loader)+(len(evalData_loader) if evalData_loader is not None else 0))
@@ -131,15 +134,18 @@ def trainModels(model, Data_loader, evalData_loader=None, nameu='encoder', optim
         for data in Data_loader:
             optim.zero_grad()
 
-            # v1 = list(map(lambda p: list(p) , data['v1']))
-            # v2 = list(map(lambda p: list(p) , data['v2']))
+            v1 = [y for x in data['v1'] for y in x]
+            v2 = [y for x in data['v2'] for y in x]
 
             with torch.no_grad():
-                v1 = targetNet(data['v1'], None, None, return_vec=True).detach()
-                v2 = targetNet(data['v2'], None, None, return_vec=True).detach()
+                v1 = targetNet(v1, None, None, return_vec=True).detach()
+                v2 = targetNet(v2, None, None, return_vec=True).detach()
 
             y_hat = model(data['x'], v1, v2)
             y1    = data['y'].to(device=model.device).flatten()
+            
+            del v1 
+            del v2 
             
             try:
                 loss = model.criterion1(y_hat, y1)

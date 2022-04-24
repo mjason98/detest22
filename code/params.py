@@ -29,7 +29,7 @@ PARAMETERS = {
             "lr": 5e-5,
 
             # * Bacth
-            "batch":4,
+            "batch":8,
 
             # * This value is multiplied to the learning rate powered to the layer id in the layers of the tranformer model
             # * > lr_{layer_i} = lr * (lr_factor ^ i)
