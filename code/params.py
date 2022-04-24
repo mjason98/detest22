@@ -45,7 +45,7 @@ PARAMETERS = {
             "encoder_optimizer": "adam",
 
             # * Weights for unbalance data
-            "training_weights":[0.5,0.5],
+            "training_weights":[0.2282, 0.7718],
 
             # * Transformer embedding_size
             "transformer_embedding_size": 768,

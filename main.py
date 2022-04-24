@@ -3,16 +3,16 @@ import sys, argparse, os
 from code.params import PARAMETERS
 from code.models import setSeed, trainModels, Encoder_Model, makeDataSet
 
-TRAIN_DATA_PATH = os.path.join("data", "train.csv")
-EVAL_DATA_PATH = ""
-TEST_DATA_PATH = os.path.join("data", "test.csv")
+TRAIN_DATA_PATH = os.path.join("data", "myTrain.csv")
+EVAL_DATA_PATH  = os.path.join("data", "myEval.csv")
+TEST_DATA_PATH  = os.path.join("data", "test.csv")
 
 def check_params(arg=None):
     global TRAIN_DATA_PATH
     global EVAL_DATA_PATH
     global PARAMETERS
 
-    parse = argparse.ArgumentParser(description='Deep Model to solve IverLeaf2021 HAHA Task')
+    parse = argparse.ArgumentParser(description='Deep Model to solve DETEST22 Task')
 
     parse.add_argument('-t', dest='train_data', help='Train Data', 
                        required=False, default=TRAIN_DATA_PATH)

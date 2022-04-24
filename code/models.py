@@ -45,7 +45,7 @@ class Encod_Last_Layers(torch.nn.Module):
         batchS = X.shape[0]
         x_ = torch.concat([ X.view(batchS, 1, self.vec_size) , V1.view(batchS, -1, self.vec_size), V2.view(batchS, -1, self.vec_size)], axis=1)
         x_ = self.MHA(x_)
-        x_ = self.Task1(X)
+        x_ = self.Task1(x_[:,-1,:])
         return x_
 
     def load(self, path):
