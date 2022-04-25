@@ -108,4 +108,11 @@ def projectData2D(data_path:str, save_name='2Data', drops = ['is_humor','humor_r
 	del fig
 	del axes
 	
-	
+def plotSequences(seq:list, labels, c='o'):
+	fig , axes = plt.subplots()
+	for S,lab in zip(seq,labels):
+		axes.plot([i+1 for i in range(len(S))], S, label=lab)
+	fig.legend()
+	fig.tight_layout()
+	fig.savefig(os.path.join('data', 'train.png'))
+	print ('# Image saved in', colorizar(os.path.join('data', 'train.png')))

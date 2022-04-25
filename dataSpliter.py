@@ -56,8 +56,6 @@ def calculateGroups():
             for v in currG:
                 mark.update({v:foundG})
 
-    groups.sort(key=lambda p: -len(p))
-
     return groups
 
 def calcWeights(L:list):
@@ -106,13 +104,13 @@ if __name__ == '__main__':
 
             for i, pair in enumerate(groupsWe):
                 if pair[0] != 0:
-                    file.write(f" { '+ ' if i > 0 and pair[0] > 0 else  '- ' }{abs(pair[0])} x{i+1}")
+                    file.write(f" { '+ ' if i > 0 and pair[0] > 0 else  '' }{abs(pair[0])} x{i+1}")
             
             file.write(f" <= {pos}\n\tc2:")
 
             for i, pair in enumerate(groupsWe):
                 if pair[1] != 0:
-                    file.write(f" { '+ ' if i > 0 and pair[1] > 0 else  '- ' }{abs(pair[1])} x{i+1}")
+                    file.write(f" { '+ ' if i > 0 and pair[1] > 0 else  '' }{abs(pair[1])} x{i+1}")
             
             file.write(f" <= {neg}\nBinary\n\t")
             for i in range(len(groupsWe)):

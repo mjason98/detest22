@@ -39,7 +39,7 @@ PARAMETERS = {
             "encoder_decay": 2e-5,
 
             # * Number of epochs in the training process
-            "epochs": 15,
+            "epochs": 3,
 
             # * Algorithm used to train the encoder model ["adam", "rms"]
             "encoder_optimizer": "adam",

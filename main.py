@@ -2,6 +2,7 @@ from statistics import mode
 import sys, argparse, os
 from code.params import PARAMETERS
 from code.models import setSeed, trainModels, Encoder_Model, makeDataSet
+from code.utils import plotSequences
 
 TRAIN_DATA_PATH = os.path.join("data", "myTrain.csv")
 EVAL_DATA_PATH  = os.path.join("data", "myEval.csv")
@@ -39,10 +40,12 @@ def check_params(arg=None):
 
 def trainStereotypeClassifier():
     model = Encoder_Model()
-    data  = makeDataSet(TRAIN_DATA_PATH)
-    evalD = None
+    dataT  = makeDataSet(TRAIN_DATA_PATH)
+    dataE  = makeDataSet(EVAL_DATA_PATH)
 
-    trainModels(model, data, evalD, 'model', model.makeOptimizer())
+    tseq, eseq = trainModels(model, dataT, dataE, 'model', model.makeOptimizer())
+
+    plotSequences([tseq,eseq], ['train', 'eval'])
 
 if __name__ == "__main__":
     if check_params(arg=sys.argv[1:]) == 0:

@@ -172,7 +172,13 @@ def trainModels(model, Data_loader, evalData_loader=None, nameu='encoder', optim
             with torch.no_grad():
                 for data in evalData_loader:
 
-                    y_hat = model(data['x'])
+                    v1 = [y for x in data['v1'] for y in x]
+                    v2 = [y for x in data['v2'] for y in x]
+
+                    v1 = model(v1, None, None, return_vec=True).detach()
+                    v2 = model(v2, None, None, return_vec=True).detach()
+
+                    y_hat = model(data['x'], v1, v2)
                     y1    = data['y'].to(device=model.device).flatten()
                     loss = model.criterion1(y_hat, y1)
                     
