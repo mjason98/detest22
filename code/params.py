@@ -26,7 +26,7 @@ PARAMETERS = {
     "training_params_by_language":{
         "es":{
             # * Learning rate hyperparameter used by default in training process
-            "lr": 5e-5,
+            "lr": 1e-5,
 
             # * Bacth
             "batch":8,
@@ -39,13 +39,13 @@ PARAMETERS = {
             "encoder_decay": 2e-5,
 
             # * Number of epochs in the training process
-            "epochs": 3,
+            "epochs": 15,
 
             # * Algorithm used to train the encoder model ["adam", "rms"]
             "encoder_optimizer": "adam",
 
             # * Weights for unbalance data
-            "training_weights":[0.2282, 0.7718],
+            "training_weights":[0.2, 0.8],
 
             # * Transformer embedding_size
             "transformer_embedding_size": 768,

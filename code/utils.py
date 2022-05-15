@@ -112,6 +112,7 @@ def plotSequences(seq:list, labels, c='o'):
 	fig , axes = plt.subplots()
 	for S,lab in zip(seq,labels):
 		axes.plot([i+1 for i in range(len(S))], S, label=lab)
+		print(lab, "score:", max(S))
 	fig.legend()
 	fig.tight_layout()
 	fig.savefig(os.path.join('data', 'train.png'))

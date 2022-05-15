@@ -36,7 +36,7 @@ class Encod_Last_Layers(torch.nn.Module):
         super(Encod_Last_Layers, self).__init__()
         
         self.__MHAtttentionLayer  = torch.nn.TransformerEncoderLayer(vec_size, nhead=3, batch_first=True)
-        self.MHA = torch.nn.TransformerEncoder(self.__MHAtttentionLayer, num_layers=2)
+        self.MHA = torch.nn.TransformerEncoder(self.__MHAtttentionLayer, num_layers=1)
         self.vec_size = vec_size
         # Classification
         self.Task1    = torch.nn.Linear(vec_size, 2)
