@@ -1,7 +1,6 @@
-from statistics import mode
 import sys, argparse, os
 from code.params import PARAMETERS
-from code.models import setSeed, trainModels, Encoder_Model, makeDataSet
+from code.models import setSeed, trainModels, Encoder_Model, makeDataSet, predict
 from code.utils import plotSequences
 
 TRAIN_DATA_PATH = os.path.join("data", "myTrain.csv")
@@ -44,8 +43,15 @@ def trainStereotypeClassifier():
     dataE  = makeDataSet(EVAL_DATA_PATH)
 
     tseq, eseq = trainModels(model, dataT, dataE, 'model', model.makeOptimizer())
-
     plotSequences([tseq,eseq], ['train', 'eval'])
+
+    del dataT
+    del dataE
+
+    dataT  = makeDataSet(TEST_DATA_PATH, shuffle=False)
+
+    model.load(os.path.join('pts', 'model.pt'))
+    predict(model, dataT, "pred", TEST_DATA_PATH)
 
 if __name__ == "__main__":
     if check_params(arg=sys.argv[1:]) == 0:

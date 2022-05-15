@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import math, os, random, torch, copy
 from .params import PARAMETERS
-from .utils import MyBar
+from .utils import MyBar, colorizar
 
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
@@ -197,7 +197,40 @@ def trainModels(model, Data_loader, evalData_loader=None, nameu='encoder', optim
         del bar
     
     return borad_train, board_eval
-        
+
+
+def predict(model, dataloader, filename, oldfile, drop=['reply_to', 'sentence']):
+    filename = os.path.join('data', filename+'.csv')
+    model.eval()
+
+    pred = []
+    dataO = pd.read_csv(oldfile).drop(drop, axis=1)
+    newColumn = list(dataO.columns) + ['stereotype']
+
+    bar = MyBar('eval', max=len(dataloader))
+    with torch.no_grad():
+        for data in dataloader:
+
+            v1 = [y for x in data['v1'] for y in x]
+            v2 = [y for x in data['v2'] for y in x]
+
+            v1 = model(v1, None, None, return_vec=True).detach()
+            v2 = model(v2, None, None, return_vec=True).detach()
+
+            y_hat = model(data['x'], v1, v2).argmax(dim=-1).squeeze().cpu().numpy()
+            pred.append(y_hat)            
+
+            bar.next()
+    bar.finish()
+    
+    pred = pd.Series(np.concatenate(pred))
+    dataO = pd.concat([dataO, pred], axis=1)
+
+    dataO.to_csv(filename, index=None, header=newColumn)
+    print("# predictions saved in", colorizar(filename))
+
+
+
 class RawDataset(Dataset):
     def __init__(self, csv_file, comentId='comment_id', sentence='sentence', classHeader='stereotype', replay="reply_to"):
         self.data_frame = pd.read_csv(csv_file)
@@ -230,7 +263,10 @@ class RawDataset(Dataset):
         elif len(rangeReplay) < self.window*2-1:
             rangeReplay = [""]*(self.window*2-1 - len(rangeReplay)) + rangeReplay
         
-        classValue =  int(self.data_frame.loc[idx, self.classH])
+        try:
+            classValue =  int(self.data_frame.loc[idx, self.classH])
+        except:
+            classValue = -1
 
         sample = {'x': sentence, 'v1': rangeSame, 'v2':rangeReplay, 'y':classValue}
         return sample

@@ -4,7 +4,7 @@ import sys
 from code.utils import colorizar
 
 DATA_PATH = "data/train.csv"
-PERCENT = 0.1
+PERCENT = 0.05
 
 assert PERCENT > 0 and PERCENT < 1
 
